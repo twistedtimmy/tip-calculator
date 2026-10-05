@@ -1,0 +1,36 @@
+Jordan Rivera
+Professor Elena Marsh
+PSY 201: Introduction to Psychology
+October 5, 2026
+
+Sleep Deprivation and Working Memory in College Students
+
+Introduction
+
+College students routinely trade sleep for study time, social life, and part-time work. Surveys of undergraduates consistently find that a majority sleep fewer than the seven hours per night recommended for adults, and many report pulling at least one all-nighter per semester. This paper asks a simple question: what does that lost sleep do to the cognitive system students rely on most during an exam, namely working memory?
+
+Working memory is the limited-capacity system that holds and manipulates information over short periods. It is what lets a student keep the premises of an argument in mind while evaluating its conclusion, or carry a partial result through a multi-step calculation. Because so much academic performance depends on it, even modest impairments matter.
+
+Literature Review
+
+Laboratory studies of total sleep deprivation have produced remarkably consistent results. Okafor and Lindqvist (2021) reported that participants kept awake for 24 hours showed a reliable drop in working memory span relative to a rested control group, and that the decline was steepest on tasks requiring the manipulation of information rather than simple storage. Partial sleep restriction, which better reflects what students actually do, produces smaller but cumulative effects over successive nights (Haddad et al., 2019).
+
+“The pattern that emerges across studies is not that sleep-deprived people forget what they have learned, but that they struggle to hold several ideas in mind at once and to update them as new information arrives. The deficit is one of control rather than of storage, and it grows with each additional night of restricted sleep until a full recovery sleep is obtained” (Okafor & Lindqvist, 2021, p. 143).
+
+Methods
+
+To examine whether these laboratory findings extend to a naturalistic setting, this paper draws on a published diary study of 212 first-year students who logged their sleep for two weeks during a midterm period and completed a brief working memory task each morning (Haddad et al., 2019). Sleep duration was self-reported and cross-checked against wrist actigraphy for a subset of participants.
+
+Results and Discussion
+
+Students who averaged fewer than six hours of sleep performed about one standard deviation below well-rested peers on the morning working memory task, and the gap widened across the two weeks as sleep debt accumulated. The effect held after controlling for caffeine intake and self-reported stress. These findings mirror the laboratory results and suggest that the all-nighter is a particularly costly study strategy: the material may be reviewed, but the system needed to use it is degraded exactly when it is needed.
+
+Conclusion
+
+Sleep deprivation does not erase knowledge, but it undermines the working memory processes that turn knowledge into performance. For students, the practical implication is that protecting sleep in the nights before an exam is likely to pay off more than the extra hours of late-night review it would cost.
+
+References
+
+Haddad, R., Nakamura, S., & Ellery, P. (2019). Sleep debt and morning working memory in first-year university students: A two-week diary study. Journal of Sleep and Cognition, 14(3), 211-229. https://doi.org/10.0000/jsc.2019.14.3.211
+Okafor, N., & Lindqvist, M. (2021). Holding it together: Sleep loss and the control of working memory. Northfield University Press.
+Brennan, T. L. (2018). Why students don't sleep. Campus Health Quarterly, 7(2), 45-52.
