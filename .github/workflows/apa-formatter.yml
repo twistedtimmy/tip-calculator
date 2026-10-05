@@ -1,0 +1,30 @@
+name: APA Formatter CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apa-formatter/**'
+      - '.github/workflows/apa-formatter.yml'
+  pull_request:
+    paths:
+      - 'apa-formatter/**'
+      - '.github/workflows/apa-formatter.yml'
+
+jobs:
+  test:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apa-formatter
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apa-formatter/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test

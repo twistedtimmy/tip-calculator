@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>APA Formatter</title>
+  <meta name="description" content="Drop in a school paper and download it formatted to APA 7: title page, page numbers, double spacing, headings and a hanging-indent reference page.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232b4c7e'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Georgia,serif' font-weight='700' font-size='16' fill='white'%3EA7%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark">A7</span> APA Formatter</a>
+    <a class="toplink" href="https://apastyle.apa.org/style-grammar-guidelines/paper-format" target="_blank" rel="noopener">APA 7 paper format guide ↗</a>
+  </header>
+
+  <main>
+    <section id="intake" class="intake">
+      <h1>Drop in your paper.<br>Get back APA 7.</h1>
+      <p class="lede">Title page, page numbers, double spacing, paragraph indents, heading styles, block quotations and a hanging-indent reference page — applied automatically. Download as Word or PDF.</p>
+
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload your paper">
+        <input type="file" id="file-input" accept=".docx,.doc,.odt,.rtf,.txt,.md,.markdown" hidden>
+        <div class="dz-icon" aria-hidden="true">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></svg>
+        </div>
+        <div class="dz-title">Drop your paper here or <span class="link">browse</span></div>
+        <div class="dz-sub">.docx, .doc, .odt, .rtf, .txt or .md &nbsp;·&nbsp; From Google Docs: File → Download → Microsoft Word</div>
+      </div>
+
+      <details class="paste">
+        <summary>Or paste your text instead</summary>
+        <textarea id="paste-input" rows="10" spellcheck="false" placeholder="Paste your paper here. Put your name, course, instructor and date on their own lines at the top and they'll land on the title page."></textarea>
+        <button id="paste-submit" class="btn primary" type="button">Format pasted text</button>
+      </details>
+
+      <p class="try"><button id="sample-btn" class="btn ghost" type="button">Try it with a sample paper</button></p>
+      <p id="intake-status" class="status" hidden></p>
+    </section>
+
+    <section id="workspace" class="workspace" hidden>
+      <aside class="controls">
+        <div class="panel">
+          <h2>Title page</h2>
+          <label>Paper title<input data-field="meta.title" autocomplete="off"></label>
+          <label>Author(s)<input data-field="meta.authors" placeholder="Jordan Rivera" autocomplete="off"></label>
+          <label>Department and school<input data-field="meta.affiliation" placeholder="Department of Psychology, Example University" autocomplete="off"></label>
+          <div data-student-only>
+            <label>Course<input data-field="meta.course" placeholder="PSY 201: Introduction to Psychology" autocomplete="off"></label>
+            <label>Instructor<input data-field="meta.instructor" placeholder="Dr. Elena Marsh" autocomplete="off"></label>
+            <label>Due date<input data-field="meta.dueDate" placeholder="October 5, 2026" autocomplete="off"></label>
+          </div>
+          <div data-professional-only hidden>
+            <label>Author note<textarea data-field="meta.authorNote" rows="3" placeholder="Correspondence concerning this article should be addressed to…"></textarea></label>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Format</h2>
+          <fieldset class="radios">
+            <legend>Paper type</legend>
+            <label><input type="radio" name="paperType" data-field="options.paperType" value="student" checked> Student</label>
+            <label><input type="radio" name="paperType" data-field="options.paperType" value="professional"> Professional</label>
+          </fieldset>
+          <label>Font
+            <select data-field="options.font">
+              <option value="times">Times New Roman 12 pt</option>
+              <option value="calibri">Calibri 11 pt</option>
+              <option value="arial">Arial 11 pt</option>
+              <option value="georgia">Georgia 11 pt</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" data-field="options.includeRunningHead"> Running head <span class="hint">only if your instructor asks; always on for professional papers</span></label>
+          <label class="sub" data-running-head-only hidden>Running head text<input data-field="options.runningHead" placeholder="Taken from the title, max 50 characters" autocomplete="off"></label>
+          <label class="check"><input type="checkbox" data-field="options.includeAbstract"> Include an abstract</label>
+          <div class="sub" data-abstract-only hidden>
+            <label>Abstract<textarea data-field="options.abstract" rows="5"></textarea></label>
+            <label>Keywords<input data-field="options.keywords" placeholder="sleep, working memory, college students" autocomplete="off"></label>
+          </div>
+          <label class="check"><input type="checkbox" data-field="options.alphabetizeReferences"> Alphabetize the reference list</label>
+          <label class="check"><input type="checkbox" data-field="options.fixHeadingCase"> Fix title and heading capitalization</label>
+        </div>
+
+        <div class="panel">
+          <h2>Structure <span class="hint">Change anything the detector got wrong</span></h2>
+          <ol id="structure" class="structure"></ol>
+        </div>
+
+        <div class="panel" id="notes-panel" hidden>
+          <h2>Notes</h2>
+          <ul id="notes" class="notes"></ul>
+        </div>
+      </aside>
+
+      <section class="preview-col">
+        <div class="toolbar">
+          <button id="dl-docx" class="btn primary" type="button">Download .docx</button>
+          <button id="dl-pdf" class="btn" type="button">Download .pdf</button>
+          <span class="grow"></span>
+          <button id="restart" class="btn ghost" type="button">Start over</button>
+        </div>
+        <p class="preview-note">Preview shows the formatting; page breaks are approximate. Downloads are exact.</p>
+        <p id="work-status" class="status" hidden></p>
+        <iframe id="preview" title="Formatted paper preview" sandbox=""></iframe>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <p>Formats to the APA <em>Publication Manual</em>, 7th edition, student paper guidelines. Your document is processed in memory and never stored.</p>
+  </footer>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
