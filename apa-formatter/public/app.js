@@ -59,6 +59,19 @@ function setPath(obj, path, value) {
   target[last] = value;
 }
 
+function downloadName(disposition, format) {
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  if (utf8) {
+    try {
+      return decodeURIComponent(utf8[1]);
+    } catch {
+      // fall back to the plain name below
+    }
+  }
+  const plain = /filename="([^"]+)"/.exec(disposition);
+  return plain ? plain[1] : `paper.${format}`;
+}
+
 function blockInlines(block) {
   if (block.type === 'blockquote') {
     return block.paragraphs.flatMap((p, i) => (i ? [{ text: ' ' }, ...p] : p));
@@ -308,12 +321,10 @@ async function download(format) {
     });
     if (!response.ok) throw new Error(await readError(response));
     const blob = await response.blob();
-    const disposition = response.headers.get('Content-Disposition') || '';
-    const match = /filename="([^"]+)"/.exec(disposition);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = match ? match[1] : `paper.${format}`;
+    link.download = downloadName(response.headers.get('Content-Disposition') || '', format);
     document.body.append(link);
     link.click();
     link.remove();

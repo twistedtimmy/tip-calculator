@@ -9,6 +9,24 @@ const MINOR_WORDS = new Set([
   'as', 'at', 'by', 'in', 'of', 'off', 'on', 'per', 'to', 'up', 'via', 'vs', 'vs.', 'v.',
 ]);
 
+/**
+ * Ordinary short words, used when a title arrives in ALL CAPS: any other two-
+ * or three-letter all-caps word is kept as an acronym (DNA, FBI, EU).
+ */
+const COMMON_SHORT_WORDS = new Set([
+  'a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'so', 'yet', 'as', 'at', 'by', 'in', 'of', 'off', 'on', 'per', 'to', 'up', 'via', 'vs',
+  'is', 'it', 'its', 'be', 'am', 'are', 'was', 'we', 'us', 'our', 'you', 'he', 'she', 'his', 'her', 'my', 'me', 'do', 'did', 'not', 'no', 'if',
+  'how', 'why', 'who', 'all', 'any', 'can', 'has', 'had', 'new', 'old', 'one', 'two', 'ten', 'big', 'low', 'top', 'end', 'use', 'way', 'get',
+  'got', 'may', 'now', 'own', 'see', 'too', 'out', 'far', 'few', 'yes', 'ago', 'age', 'art', 'day', 'eye', 'job', 'law', 'man', 'men', 'sun',
+  'war', 'web', 'air', 'bad', 'key', 'let', 'lot', 'map', 'mix', 'net', 'odd', 'oil', 'pay', 'red', 'run', 'set', 'sea', 'six', 'tax', 'tea',
+  'try', 'win', 'add', 'ask', 'buy', 'cut', 'eat', 'fit', 'fun', 'gap', 'hit', 'hot', 'ice', 'ill', 'kid', 'lab', 'leg', 'lie', 'mad', 'pet',
+  'put', 'raw', 'row', 'sad', 'say', 'sit', 'sky', 'son', 'tie', 'van', 'wet', 'act', 'arm', 'bed', 'bit', 'box', 'boy', 'bus', 'car', 'cat',
+  'cry', 'cup', 'dog', 'dry', 'due', 'ear', 'egg', 'era', 'fan', 'fat', 'fee', 'fix', 'fly', 'gas', 'god', 'gun', 'guy', 'gym', 'hat', 'hip',
+  'ink', 'joy', 'jet', 'lap', 'lid', 'lip', 'log', 'mob', 'mom', 'dad', 'mud', 'nap', 'nut', 'oak', 'pan', 'pen', 'pie', 'pig', 'pin', 'pit',
+  'pot', 'rat', 'rib', 'rid', 'rim', 'rip', 'rod', 'rot', 'rub', 'rug', 'sex', 'shy', 'sin', 'sip', 'ski', 'spy', 'tab', 'tag', 'tan', 'tap',
+  'tar', 'tin', 'tip', 'toe', 'ton', 'toy', 'tub', 'wax', 'wig', 'zip', 'zoo',
+]);
+
 const HAS_LETTER = /\p{L}/u;
 
 function capitalizeCore(core: string): string {
@@ -37,26 +55,45 @@ function titleCaseWord(word: string, force: boolean): string {
   return lead + capitalizeCore(core) + trail;
 }
 
+/** In an all-caps title, keep likely acronyms (DNA, FBI, COVID-19); everything else gets ordinary casing. */
+function uncapsWord(word: string): string {
+  const core = word.replace(/[^\p{L}\p{N}]/gu, '');
+  if (/\p{N}/u.test(core)) return word;
+  if (core.length >= 2 && core.length <= 3 && !COMMON_SHORT_WORDS.has(core.toLowerCase())) return word;
+  return word.toLowerCase();
+}
+
+/**
+ * Title case that leaves the whitespace exactly as it is, so the formatted runs
+ * of a heading can be cased as one string and sliced back apart.
+ */
+export function titleCaseText(text: string): string {
+  if (!HAS_LETTER.test(text)) return text;
+  // A title typed in ALL CAPS has no case information to preserve, except acronyms.
+  const allCaps = text === text.toUpperCase();
+  const tokens = text.split(/(\s+)/);
+  const wordPositions = tokens.map((token, i) => (/\S/.test(token) ? i : -1)).filter((i) => i >= 0);
+  const first = wordPositions[0];
+  const last = wordPositions[wordPositions.length - 1];
+  let prev = '';
+  return tokens
+    .map((token, i) => {
+      if (!/\S/.test(token)) return token;
+      const afterBreak = /[:—–?!.]$/.test(prev) || prev === '-' || prev === '—' || prev === '–';
+      const force = i === first || i === last || afterBreak;
+      prev = token;
+      return titleCaseWord(allCaps ? uncapsWord(token) : token, force);
+    })
+    .join('');
+}
+
 /**
  * APA title case: capitalize major words, lowercase short conjunctions, articles
  * and prepositions, always capitalize the first and last word and the first
  * word after a colon or dash.
  */
 export function toTitleCase(input: string): string {
-  let text = input.trim().replace(/\s+/g, ' ');
-  if (!text) return text;
-  // A title typed in ALL CAPS has no case information to preserve.
-  if (text === text.toUpperCase() && HAS_LETTER.test(text)) text = text.toLowerCase();
-
-  const words = text.split(' ');
-  return words
-    .map((word, i) => {
-      const prev = i > 0 ? words[i - 1] ?? '' : '';
-      const afterBreak = /[:—–?!.]$/.test(prev) || prev === '-' || prev === '—' || prev === '–';
-      const force = i === 0 || i === words.length - 1 || afterBreak;
-      return titleCaseWord(word, force);
-    })
-    .join(' ');
+  return titleCaseText(input.trim().replace(/\s+/g, ' '));
 }
 
 /** One space after periods, no doubled spaces, no stray whitespace (§6.1). */
@@ -70,13 +107,21 @@ export function fixPageRanges(text: string): string {
 }
 
 /**
- * In a reference entry every numeric range (pages, volumes, years) takes an en
- * dash. URLs and DOIs are left alone.
+ * In a reference entry a numeric range (pages, volumes, years) takes an en
+ * dash. URLs, DOIs and identifiers such as "2020-009" or an ISBN are left alone:
+ * a range ascends, has no leading zeros and holds a single hyphen.
  */
 export function fixReferenceDashes(text: string): string {
   return text
     .split(/(\s+)/)
-    .map((token) => (/https?:\/\/|doi|\//i.test(token) ? token : token.replace(/(\d)\s?-\s?(\d)/g, '$1–$2')))
+    .map((token) => {
+      if (/https?:\/\/|doi|\//i.test(token)) return token;
+      if ((token.match(/\d-\d/g) ?? []).length > 1) return token;
+      return token.replace(/(\d+)\s?-\s?(\d+)/g, (whole, a: string, b: string) => {
+        const leadingZero = (a.length > 1 && a.startsWith('0')) || (b.length > 1 && b.startsWith('0'));
+        return leadingZero || Number(a) > Number(b) ? whole : `${a}–${b}`;
+      });
+    })
     .join('');
 }
 
@@ -101,7 +146,7 @@ function monthIndex(name: string): number {
  * returned unchanged, so the student's own wording is never destroyed.
  */
 export function formatDueDate(input: string): string {
-  const text = input.trim().replace(/^(due|date|due date|submitted)\s*:?\s*/i, '');
+  const text = input.trim().replace(/^(?:due date|due on|due|date|submitted on|submitted)\b\s*:?\s*/i, '');
   if (!text) return '';
 
   let m = /^([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$/.exec(text); // October 5, 2026 / Oct 5 2026
@@ -133,7 +178,7 @@ export function formatDueDate(input: string): string {
 export function looksLikeDate(text: string): boolean {
   const t = text.trim();
   return (
-    /^(due|date|due date|submitted)\s*:/i.test(t) ||
+    /^(due date|due on|due|date|submitted on|submitted)\b\s*:/i.test(t) ||
     /^([A-Za-z]{3,9})\.?\s+\d{1,2}(st|nd|rd|th)?,?\s+\d{4}$/.test(t) ||
     /^\d{1,2}(st|nd|rd|th)?\s+[A-Za-z]{3,9}\.?,?\s+\d{4}$/.test(t) ||
     /^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$/.test(t) ||

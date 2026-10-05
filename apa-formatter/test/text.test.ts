@@ -12,8 +12,10 @@ describe('toTitleCase', () => {
   it('keeps acronyms, internal capitals and hyphenated compounds', () => {
     expect(toTitleCase('COVID-19 and the iPhone generation: long-term self-esteem')).toBe('COVID-19 and the iPhone Generation: Long-Term Self-Esteem');
   });
-  it('recovers from ALL CAPS', () => {
+  it('recovers from ALL CAPS while keeping likely acronyms', () => {
     expect(toTitleCase('WHY WE SLEEP')).toBe('Why We Sleep');
+    expect(toTitleCase('DNA REPAIR MECHANISMS')).toBe('DNA Repair Mechanisms');
+    expect(toTitleCase('COVID-19 AND THE FBI')).toBe('COVID-19 and the FBI');
   });
   it('capitalizes prepositions of four letters or more', () => {
     expect(toTitleCase('learning from mistakes between classes')).toBe('Learning From Mistakes Between Classes');
@@ -32,6 +34,11 @@ describe('spacing and dashes', () => {
     const entry = 'Journal, 14(3), 211-229. https://doi.org/10.0000/jsc.2019-14-3';
     expect(fixReferenceDashes(entry)).toBe('Journal, 14(3), 211–229. https://doi.org/10.0000/jsc.2019-14-3');
   });
+  it('leaves report numbers, ISBNs and other identifiers alone', () => {
+    expect(fixReferenceDashes('(NCES 2020-009)')).toBe('(NCES 2020-009)');
+    expect(fixReferenceDashes('ISBN 978-0-13-468599-1')).toBe('ISBN 978-0-13-468599-1');
+    expect(fixReferenceDashes('Sleep, 39(3), 687-698.')).toBe('Sleep, 39(3), 687–698.');
+  });
 });
 
 describe('running head', () => {
@@ -49,6 +56,7 @@ describe('dates', () => {
     expect(formatDueDate('5 October 2026')).toBe('October 5, 2026');
     expect(formatDueDate('2026-10-05')).toBe('October 5, 2026');
     expect(formatDueDate('Due: October 5th, 2026')).toBe('October 5, 2026');
+    expect(formatDueDate('Due date: October 5, 2026')).toBe('October 5, 2026');
   });
   it('leaves unknown wording alone', () => {
     expect(formatDueDate('Fall semester 2026')).toBe('Fall semester 2026');

@@ -26,6 +26,15 @@ const LABELS: Array<[RegExp, keyof TitlePage]> = [
 const COURSE_CODE = /\b[A-Z]{2,5}\s?-?\s?\d{3,4}[A-Z]?\b/;
 const INSTRUCTOR = /^(prof(essor|\.)?|dr\.?|instructor|mr\.?|ms\.?|mrs\.?|mx\.?)\s+\S|\b(professor|instructor)\b/i;
 const NAME_LIKE = /^(?:[\p{Lu}][\p{L}'’-]*\.?\s+){1,3}[\p{Lu}][\p{L}'’-]+$/u;
+const TERM_LIKE = /^(?:(?:fall|spring|summer|winter|autumn|semester|term|quarter|trimester|session)\b.*\b\d{4}|\d{4})$/i;
+const ASSIGNMENT_LABEL = /^(?:essay|assignment|paper|project|homework|lab|report|final|midterm|exam|draft|unit|week|module)\b/i;
+
+/** One name, or several joined by commas, "and" or "&": "Jordan Rivera and Sam Lee". */
+function looksLikeName(line: string): boolean {
+  if (line.length > 80) return false;
+  const parts = line.split(/\s*(?:,|&|\band\b)\s*/i).filter(Boolean);
+  return parts.length > 0 && parts.length <= 4 && parts.every((part) => part.length <= 40 && NAME_LIKE.test(part));
+}
 
 /**
  * "Department of Psychology, Example University" — the institution word heads
@@ -54,6 +63,16 @@ export function buildPaper(raw: RawResult, ctx: { filename?: string } = {}): Pap
   if (titleIdx >= 0) {
     meta.title = text(blocks[titleIdx]!);
     blocks.splice(titleIdx, 1);
+  } else {
+    // "# Title" above "## Section" headings: a top heading that outranks every other one is the title.
+    const first = blocks[0];
+    if (first?.kind === 'heading' && first.explicit) {
+      const others = blocks.slice(1).filter((b) => b.kind === 'heading' && b.explicit);
+      if (others.length && others.every((b) => (b.level ?? 1) > (first.level ?? 1))) {
+        meta.title = text(first);
+        blocks.splice(0, 1);
+      }
+    }
   }
 
   blocks = extractFrontMatter(blocks, meta, warnings);
@@ -91,6 +110,8 @@ function extractFrontMatter(blocks: RawBlock[], meta: TitlePage, warnings: strin
   while (count < blocks.length && count < 10) {
     const block = blocks[count]!;
     if (!isShortLine(block) || isSectionMarker(text(block))) break;
+    // A styled heading below the title, or below other title-page lines, is where the body starts.
+    if (block.kind === 'heading' && block.explicit && (count > 0 || meta.title)) break;
     count++;
   }
   if (count === 0) return blocks;
@@ -102,27 +123,28 @@ function extractFrontMatter(blocks: RawBlock[], meta: TitlePage, warnings: strin
 
   // Pass 1: lines that announce what they are.
   for (const block of lines) {
-    const t = text(block);
-    if (block.kind === 'heading' && block.explicit && meta.title) {
-      keep.push(block); // a real heading under a real title stays a heading
-      continue;
-    }
-    if (!assignLabeledLine(t, meta)) unplaced.push(t);
+    if (!assignLabeledLine(text(block), meta)) unplaced.push(text(block));
   }
 
-  // Pass 2: whatever is left is the title, or names around it. Prefer a line
-  // that doesn't look like a person's name; the longest one wins.
-  if (!meta.title && unplaced.length) {
-    const pool = unplaced.filter((line) => !(NAME_LIKE.test(line) && line.length <= 40));
-    const longest = (pool.length ? pool : unplaced).reduce((a, b) => (wordCount(b) > wordCount(a) ? b : a));
-    meta.title = longest;
-    unplaced.splice(unplaced.indexOf(longest), 1);
+  // Pass 2, in document order: the first unclaimed line that isn't a person's
+  // name is the title; names become the author, then the instructor.
+  // (The title repeated above the body text, as APA papers do, is not a subtitle.)
+  const candidates = unplaced.filter((line) => line.toLowerCase() !== meta.title.toLowerCase());
+  const labels = candidates.filter((line) => ASSIGNMENT_LABEL.test(line) && wordCount(line) <= 4);
+  for (const line of labels) warnings.push(`Left out "${line}": assignment labels don't belong on an APA title page.`);
+  let remaining = candidates.filter((line) => !labels.includes(line));
+  if (!meta.title) {
+    // With a course, instructor or date around it, a lone name is the author, not the title.
+    const evidence = !!(meta.course || meta.instructor || meta.dueDate || meta.affiliation);
+    const titleLine = remaining.find((line) => !looksLikeName(line)) ?? (evidence ? undefined : remaining[0]);
+    if (titleLine) {
+      meta.title = titleLine;
+      remaining = remaining.filter((line) => line !== titleLine);
+    }
   }
   const leftovers: string[] = [];
-  for (const line of unplaced) {
-    // The title repeated above the body text (as APA papers do) is not a subtitle.
-    if (line.toLowerCase() === meta.title.toLowerCase()) continue;
-    if (NAME_LIKE.test(line) && line.length <= 40) {
+  for (const line of remaining) {
+    if (looksLikeName(line)) {
       if (!meta.authors) meta.authors = line;
       else if (!meta.instructor) meta.instructor = line;
       else leftovers.push(line);
@@ -130,7 +152,7 @@ function extractFrontMatter(blocks: RawBlock[], meta: TitlePage, warnings: strin
       leftovers.push(line);
     }
   }
-  if (leftovers.length === 1 && wordCount(leftovers[0]!) <= 12 && meta.title) {
+  if (leftovers.length === 1 && wordCount(leftovers[0]!) <= 12 && meta.title && /\p{L}/u.test(leftovers[0]!) && !TERM_LIKE.test(leftovers[0]!)) {
     meta.title = `${meta.title}: ${leftovers[0]}`; // a subtitle on its own line
     leftovers.length = 0;
   }
@@ -154,8 +176,8 @@ function assignLabeledLine(line: string, meta: TitlePage): boolean {
     meta.authors ||= by[1]!.trim();
     return true;
   }
-  if (looksLikeDate(line)) {
-    meta.dueDate ||= line;
+  if (looksLikeDate(line) || (TERM_LIKE.test(line) && wordCount(line) <= 4)) {
+    meta.dueDate ||= line; // "Fall 2026" is the closest thing to a due date the student gave us
     return true;
   }
   if (COURSE_CODE.test(line) && wordCount(line) <= 10) {

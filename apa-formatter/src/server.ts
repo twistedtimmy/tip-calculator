@@ -27,9 +27,14 @@ const upload = multer({
   },
 });
 
-function safeFilename(title: string, ext: string): string {
+/**
+ * Header values must be Latin-1, so the plain filename is ASCII (diacritics
+ * stripped) and the full Unicode name travels in the RFC 5987 filename* form.
+ */
+function contentDisposition(title: string, ext: string): string {
   const base = title.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'paper';
-  return `${base}.${ext}`;
+  const ascii = base.normalize('NFKD').replace(/[^\x20-\x7e]/g, '').replace(/^-+|-+$/g, '') || 'paper';
+  return `attachment; filename="${ascii}.${ext}"; filename*=UTF-8''${encodeURIComponent(`${base}.${ext}`)}`;
 }
 
 app.get('/api/health', async (_req, res) => {
@@ -54,14 +59,14 @@ app.post('/api/render', async (req, res) => {
     case 'docx': {
       const buffer = await renderDocx(paper);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(title, 'docx')}"`);
+      res.setHeader('Content-Disposition', contentDisposition(title, 'docx'));
       res.send(buffer);
       return;
     }
     case 'pdf': {
       const buffer = await renderPdf(paper);
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(title, 'pdf')}"`);
+      res.setHeader('Content-Disposition', contentDisposition(title, 'pdf'));
       res.send(buffer);
       return;
     }

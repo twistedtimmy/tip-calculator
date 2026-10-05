@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
+import { Document, FootnoteReferenceRun, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
 import { describe, expect, it } from 'vitest';
 import { blockText } from '../src/model.js';
 import { parseDocument, parseText } from '../src/parse/index.js';
@@ -138,7 +138,66 @@ describe('docx', () => {
     expect(ref?.type === 'reference' && ref.inlines.some((i) => i.italic)).toBe(true);
   });
 
+  it('drops Word footnotes instead of filing them as references', async () => {
+    const doc = new Document({
+      footnotes: { 1: { children: [new Paragraph('This is a footnote about sleep.')] } },
+      sections: [
+        {
+          children: [
+            new Paragraph({ children: [new TextRun('Sleep and Memory')] }),
+            new Paragraph({
+              children: [
+                new TextRun('Body text with a note'),
+                new FootnoteReferenceRun(1),
+                new TextRun(' and enough further words to make this a real paragraph of the paper for the heuristics.'),
+              ],
+            }),
+            new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun('References')] }),
+            new Paragraph({ children: [new TextRun('Okafor, N. (2021). Holding it together. Press.')] }),
+          ],
+        },
+      ],
+    });
+    const paper = await parseDocument(Buffer.from(await Packer.toBuffer(doc)), 'draft.docx');
+    const refs = paper.blocks.filter((b) => b.type === 'reference').map(blockText);
+    expect(refs).toEqual(['Okafor, N. (2021). Holding it together. Press.']);
+    expect(paper.blocks.some((b) => blockText(b).includes('footnote about sleep'))).toBe(false);
+    expect(blockText(paper.blocks[0]!)).toBe('Body text with a note and enough further words to make this a real paragraph of the paper for the heuristics.');
+    expect(paper.warnings.some((w) => /1 footnote was left out/.test(w))).toBe(true);
+  });
+
   it('rejects unknown file types with a helpful message', async () => {
     await expect(parseDocument(Buffer.from('x'), 'paper.pages')).rejects.toThrow(/Unsupported file type/);
+  });
+});
+
+describe('title page edge cases', () => {
+  const body = 'Body text long enough to be a paragraph of the paper for the purposes of this test case right here.';
+
+  it('takes a Markdown # title above ## sections and keeps the sections as headings', async () => {
+    const paper = await parseText(`# The Effects of Sleep\n\nJordan Rivera\n\n## Why Sleep Matters\n\n${body}\n`, 'paper.md');
+    expect(paper.meta.title).toBe('The Effects of Sleep');
+    expect(paper.meta.authors).toBe('Jordan Rivera');
+    expect(paper.meta.instructor).toBe('');
+    expect(paper.blocks.filter((b) => b.type === 'heading').map(blockText)).toEqual(['Why Sleep Matters']);
+  });
+
+  it('recognises several authors on one line', async () => {
+    const paper = await parseText(`Sleep and Memory\nJordan Rivera and Sam Lee\nPSY 201\nOctober 5, 2026\n\n${body}`);
+    expect(paper.meta.title).toBe('Sleep and Memory');
+    expect(paper.meta.authors).toBe('Jordan Rivera and Sam Lee');
+    expect(paper.meta.course).toBe('PSY 201');
+  });
+
+  it('treats a semester line as the date rather than a subtitle', async () => {
+    const paper = await parseText(`Sleep and Memory\nJordan Rivera\nPSY 201\nFall 2026\n\n${body}`);
+    expect(paper.meta.title).toBe('Sleep and Memory');
+    expect(paper.meta.dueDate).toBe('Fall 2026');
+  });
+
+  it('still joins a real subtitle to the title', async () => {
+    const paper = await parseText(`Sleep and Memory\nA Review of the Evidence\nJordan Rivera\n\n${body}`);
+    expect(paper.meta.title).toBe('Sleep and Memory: A Review of the Evidence');
+    expect(paper.meta.authors).toBe('Jordan Rivera');
   });
 });

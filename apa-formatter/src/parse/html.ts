@@ -30,6 +30,8 @@ function collectLines(node: AnyNode, fmt: Fmt, lines: Inline[][]): void {
     return;
   }
   if (tag === 'img' || tag === 'script' || tag === 'style') return;
+  // Mammoth's footnote/endnote markers link to "#footnote-…"; the notes themselves are dropped in visit().
+  if (tag === 'a' && /^#(?:footnote|endnote)/.test(el.attribs['href'] ?? '')) return;
   const key = INLINE_TAGS[tag];
   const next: Fmt = key ? { ...fmt, [key]: true } : fmt;
   for (const child of el.children) collectLines(child, next, lines);
@@ -65,6 +67,7 @@ export function htmlToBlocks(html: string): RawResult {
   const $ = cheerio.load(html);
   const blocks: RawBlock[] = [];
   const warnings = new Set<string>();
+  let footnotes = 0;
 
   const visit = (el: Element): void => {
     const tag = el.tagName.toLowerCase();
@@ -95,12 +98,15 @@ export function htmlToBlocks(html: string): RawResult {
       return;
     }
     if (tag === 'ul' || tag === 'ol') {
-      warnings.add('Lists were converted to plain paragraphs. APA papers rarely use bullet lists; rewrite them as prose if your instructor expects it.');
-      for (const li of el.children) {
-        if (li.type === 'tag' && (li as Element).tagName.toLowerCase() === 'li') {
-          const inlines = joined(li as Element);
-          if (inlines.length) blocks.push({ kind: 'paragraph', inlines });
-        }
+      const items = el.children.filter((c): c is Element => c.type === 'tag' && (c as Element).tagName.toLowerCase() === 'li');
+      // Mammoth appends Word footnotes/endnotes as a list of <li id="footnote-N">; they are not body text.
+      const notes = items.filter((li) => /^(?:footnote|endnote)-/.test(li.attribs['id'] ?? ''));
+      footnotes += notes.length;
+      const real = items.filter((li) => !notes.includes(li));
+      if (real.length) warnings.add('Lists were converted to plain paragraphs. APA papers rarely use bullet lists; rewrite them as prose if your instructor expects it.');
+      for (const li of real) {
+        const inlines = joined(li);
+        if (inlines.length) blocks.push({ kind: 'paragraph', inlines });
       }
       return;
     }
@@ -132,5 +138,8 @@ export function htmlToBlocks(html: string): RawResult {
 
   const body = $('body').get(0);
   if (body) visit(body);
+  if (footnotes) {
+    warnings.add(`${footnotes} footnote${footnotes === 1 ? ' was' : 's were'} left out. APA papers usually work notes into the text; add them back in Word if you need them.`);
+  }
   return { blocks, warnings: [...warnings] };
 }

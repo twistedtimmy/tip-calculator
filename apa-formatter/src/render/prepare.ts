@@ -5,7 +5,7 @@
  */
 import type { Inline, Paper } from '../model.js';
 import { FONTS, inlineText, normalizeInlines } from '../model.js';
-import { makeRunningHead, toTitleCase } from '../apa/text.js';
+import { makeRunningHead, titleCaseText, toTitleCase } from '../apa/text.js';
 
 export type PreparedItem =
   | { kind: 'heading'; level: 1 | 2 | 3; inlines: Inline[] }
@@ -27,9 +27,16 @@ export interface Prepared {
 
 function titleCaseInlines(inlines: Inline[]): Inline[] {
   const merged = normalizeInlines(inlines);
-  if (merged.length === 1) return [{ ...merged[0]!, text: toTitleCase(merged[0]!.text) }];
-  // Mixed formatting: capitalize each run on its own; close enough for a heading.
-  return merged.map((inline) => ({ ...inline, text: toTitleCase(inline.text) }));
+  const joined = inlineText(merged);
+  const cased = titleCaseText(joined);
+  // Casing keeps the length, so the cased text slices back into the original runs with their spaces intact.
+  if (cased.length !== joined.length) return merged.map((inline) => ({ ...inline, text: titleCaseText(inline.text) }));
+  let offset = 0;
+  return merged.map((inline) => {
+    const text = cased.slice(offset, offset + inline.text.length);
+    offset += inline.text.length;
+    return { ...inline, text };
+  });
 }
 
 function sortKey(inlines: Inline[]): string {

@@ -108,6 +108,14 @@ describe('HTML output', () => {
     expect(renderHtml(paper, 'print')).not.toContain('<h1>Abstract</h1>');
   });
 
+  it('title-cases headings without losing the spaces between formatted runs', () => {
+    const mixed: Paper = {
+      ...paper,
+      blocks: [{ type: 'heading', level: 2, inlines: [{ text: 'working memory ' }, { text: 'and', italic: true }, { text: ' attention' }] }],
+    };
+    expect(renderHtml(mixed, 'print')).toContain('<h2>Working Memory <i>and</i> Attention</h2>');
+  });
+
   it('runs level 4 and 5 headings into the following paragraph', () => {
     const runIn: Paper = {
       ...paper,
